@@ -441,27 +441,48 @@ async def create_completion(raw_request: Request):
     async def completion_stream_generator() -> AsyncGenerator[str, None]:
         previous_texts = [""] * request.n
         previous_num_tokens = [0] * request.n
+        index = 0
         async for res in result_generator:
             res: RequestOutput
             for output in res.outputs:
-                i = output.index
-                delta_text = output.text[len(previous_texts[i]):]
-                if request.logprobs is not None:
-                    logprobs = create_logprobs(
-                        output.token_ids[previous_num_tokens[i]:],
-                        output.logprobs[previous_num_tokens[i]:],
-                        len(previous_texts[i]))
-                else:
-                    logprobs = None
-                previous_texts[i] = output.text
-                previous_num_tokens[i] = len(output.token_ids)
-                response_json = create_stream_response_json(
-                    index=i,
-                    text=delta_text,
-                    logprobs=logprobs,
-                )
-                yield f"data: {response_json}\n\n"
+                index += 1
+                if index % 10 == 0:  # wait 10 text
+                    i = output.index
+                    delta_text = output.text[len(previous_texts[i]):]
+                    if request.logprobs is not None:
+                        logprobs = create_logprobs(
+                            output.token_ids[previous_num_tokens[i]:],
+                            output.logprobs[previous_num_tokens[i]:],
+                            len(previous_texts[i]))
+                    else:
+                        logprobs = None
+                    previous_texts[i] = output.text
+                    previous_num_tokens[i] = len(output.token_ids)
+                    response_json = create_stream_response_json(
+                        index=i,
+                        text=delta_text,
+                        logprobs=logprobs,
+                    )
+                    yield f"data: {response_json}\n\n"
+                
                 if output.finish_reason is not None:
+                    i = output.index
+                    delta_text = output.text[len(previous_texts[i]):]
+                    if request.logprobs is not None:
+                        logprobs = create_logprobs(
+                            output.token_ids[previous_num_tokens[i]:],
+                            output.logprobs[previous_num_tokens[i]:],
+                            len(previous_texts[i]))
+                    else:
+                        logprobs = None
+                    response_json_1 = create_stream_response_json(
+                        index=i,
+                        text=delta_text,
+                        logprobs=logprobs,
+                    )
+
+
+
                     logprobs = (LogProbs()
                                 if request.logprobs is not None else None)
                     response_json = create_stream_response_json(
@@ -470,7 +491,8 @@ async def create_completion(raw_request: Request):
                         logprobs=logprobs,
                         finish_reason=output.finish_reason,
                     )
-                    yield f"data: {response_json}\n\n"
+                    yield f"data: {response_json_1}\n\ndata: {response_json}\n\n"
+                    #yield f"data: {response_json}\n\n"
         yield "data: [DONE]\n\n"
 
     # Streaming response
