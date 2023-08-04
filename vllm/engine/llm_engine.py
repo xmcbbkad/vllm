@@ -415,7 +415,7 @@ class LLMEngine:
                 if new_token is not None:
                     seq.output_tokens.append(new_token)
                     #seq.output_text = new_output_text
-                    if new_output_text[-1] != '�':
+                    if new_output_text and new_output_text[-1] != '�':
                         seq.output_text = new_output_text
 
     def _stop_sequences(self, seq_groups: List[SequenceGroup]) -> None:
